@@ -50,7 +50,7 @@ export async function GET(req: NextRequest) {
   const since30Str = since30.toISOString().slice(0, 10);
 
   const commitsRes = await fetch(
-    `${GITHUB_API}/search/commits?q=author:${username}+author-date:>=${since90Str}&per_page=100&sort=author-date&order=asc`,
+    `${GITHUB_API}/search/commits?q=author:${username}+author-date:>=${since90Str}&per_page=100&sort=author-date&order=desc`,
     {
       headers: {
         Authorization: `Bearer ${session.accessToken}`,
