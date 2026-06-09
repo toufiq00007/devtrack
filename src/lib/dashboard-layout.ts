@@ -16,6 +16,7 @@ export type DashboardWidgetId =
   | "activity-ring"
   | "coding-activity-insights"
   | "streak-tracker"
+  | "consistency-score"
   | "local-coding-time"
   | "coding-time"
   | "commit-time"
@@ -70,6 +71,7 @@ export const DASHBOARD_WIDGET_LABELS: Record<DashboardWidgetId, string> = {
   "activity-ring": "Activity Ring",
   "coding-activity-insights": "Coding Activity Insights",
   "streak-tracker": "Streak Tracker",
+  "consistency-score": "Consistency Score",
   "local-coding-time": "Local Coding Time",
   "coding-time": "Coding Time",
   "commit-time": "Commit Time",
@@ -106,6 +108,7 @@ export const DEFAULT_DASHBOARD_LAYOUT: DashboardLayoutPreference = {
       "activity-ring",
       "coding-activity-insights",
       "streak-tracker",
+      "consistency-score",
       "local-coding-time",
       "coding-time",
       "commit-time",

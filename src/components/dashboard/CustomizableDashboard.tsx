@@ -25,6 +25,7 @@ import DiscussionsWidget from "@/components/DiscussionsWidget";
 import CommunityMetrics from "@/components/CommunityMetrics";
 import GoalTracker from "@/components/GoalTracker";
 import StreakTracker from "@/components/StreakTracker";
+import ConsistencyScoreWidget from "@/components/ConsistencyScoreWidget";
 import TopRepos from "@/components/TopRepos";
 import PinnedReposWidget from "@/components/PinnedReposWidget";
 import InactiveRepositoriesCard from "@/components/InactiveRepositoriesCard";
@@ -302,6 +303,13 @@ const renderDashboardWidget = (widgetId: DashboardWidgetId): ReactNode => {
 
     case "streak-tracker":
       return <StreakTracker />;
+
+    case "consistency-score":
+      return (
+        <LazyWidget fallback={<ChartSkeleton />}>
+          <ConsistencyScoreWidget />
+        </LazyWidget>
+      );
 
     case "local-coding-time":
       return <LocalCodingTime />;
