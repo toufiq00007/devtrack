@@ -1,6 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import Image from "next/image";
 import dynamic from "next/dynamic";
 
@@ -24,7 +29,7 @@ interface SuggestedUser {
 const STORAGE_KEY = "devtrack:compare_username";
 const SUGGEST_DEBOUNCE_MS = 300;
 
-export default function FriendComparison() {
+function FriendComparison() {
   const [friendUsername, setFriendUsername] = useState(() => {
     if (typeof window === "undefined") return "";
     return localStorage.getItem(STORAGE_KEY) ?? "";
@@ -166,7 +171,7 @@ export default function FriendComparison() {
           })
         );
       }
-    } catch {
+    } catch (e) {
       setError("An error occurred");
     } finally {
       setLoading(false);
@@ -316,7 +321,7 @@ export default function FriendComparison() {
           <button
             type="submit"
             disabled={loading || !trimmedFriendUsername}
-            className="w-full sm:w-auto shrink-0 whitespace-nowrap rounded-md bg-[var(--accent)] px-4 py-2 text-sm font-medium text-[var(--accent-foreground)] transition-colors disabled:opacity-50 hover:opacity-90"
+            className="w-full sm:w-auto shrink-0 whitespace-nowrap rounded-md bg-[var(--accent)] px-4 py-2 text-sm font-medium text-[var(--accent-foreground)] transition-all disabled:opacity-50 hover:opacity-90 active:scale-95"
           >
             {loading ? "Loading..." : "Compare"}
           </button>
@@ -498,3 +503,5 @@ function ComparisonRow({
     </div>
   );
 }
+
+export default React.memo(FriendComparison);

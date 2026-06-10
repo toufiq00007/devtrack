@@ -1,9 +1,12 @@
 import React from "react";
-import "@testing-library/jest-dom";
+import "@testing-library/jest-dom/vitest";
+// @ts-ignore
 import { render, screen, waitFor } from "@testing-library/react";
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import DashboardHeader from "../../src/components/DashboardHeader";
 import { useSession } from "next-auth/react";
+import { NextIntlClientProvider } from "next-intl";
+import messages from "../../messages/en.json";
 
 vi.mock("next-auth/react");
 
@@ -33,6 +36,14 @@ vi.mock("@/components/KeyboardShortcuts", () => ({
 
 const mockedUseSession = useSession as any;
 
+function renderDashboardHeader() {
+  return render(
+    <NextIntlClientProvider locale="en" messages={messages}>
+      <DashboardHeader />
+    </NextIntlClientProvider>
+  );
+}
+
 describe("DashboardHeader", () => {
   beforeEach(() => {
     global.fetch = vi.fn() as any;
@@ -48,7 +59,7 @@ describe("DashboardHeader", () => {
       status: "unauthenticated",
     });
 
-    render(<DashboardHeader />);
+    renderDashboardHeader();
 
     expect(
       screen.getByRole("heading", { name: "Dashboard" })
@@ -61,7 +72,7 @@ describe("DashboardHeader", () => {
       status: "unauthenticated",
     });
 
-    render(<DashboardHeader />);
+    renderDashboardHeader();
 
     expect(
       screen.getByText(/coding activity at a glance/i)
@@ -74,7 +85,7 @@ describe("DashboardHeader", () => {
       status: "unauthenticated",
     });
 
-    render(<DashboardHeader />);
+    renderDashboardHeader();
 
     expect(fetch).not.toHaveBeenCalled();
   });
@@ -94,7 +105,7 @@ describe("DashboardHeader", () => {
       }),
     });
 
-    render(<DashboardHeader />);
+    renderDashboardHeader();
 
     await waitFor(() => {
       expect(fetch).toHaveBeenCalledWith("/api/user/settings");

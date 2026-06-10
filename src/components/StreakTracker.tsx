@@ -2,12 +2,18 @@
 import SectionHeader from "./SectionHeader";
 import { useCallback, useEffect, useState, useRef } from "react";
 import { useAccount } from "@/components/AccountContext";
+import { useRealtimeSync } from "@/hooks/useRealtimeSync";
 import { useCountUp } from "@/hooks/useCountUp";
 import StreakMilestoneBanner from "@/components/StreakMilestoneBanner";
 import { useHeatmapTheme } from "@/hooks/useHeatmapTheme";
 import { toast } from "sonner";
 import { toPng } from "html-to-image";
 import { Flame, Trophy, Calendar, Zap, Copy, CheckCircle, Medal, Star, Sparkles } from "lucide-react";
+
+
+const DATA_WINDOW_DAYS = 90;
+const dataWindowLabel = `Last ${DATA_WINDOW_DAYS} days`;
+
 
 const STREAK_MILESTONES = [7, 30, 50, 100, 200, 365];
 
@@ -30,7 +36,7 @@ interface FreezeData {
   freezeDate?: string | null;
 }
 
-export default function StreakTracker() {
+export function useStreakTracker() {
   const { selectedAccount } = useAccount();
   const [data, setData] = useState<StreakData | null>(null);
   const [contributionData, setContributionData] = useState<ContributionData | null>(null);
@@ -113,7 +119,7 @@ export default function StreakTracker() {
     }
   }, [selectedAccount]);
 
-  const fetchFreeze = () => {
+  const fetchFreeze = useCallback(() => {
     setFreezeLoading(true);
     fetch("/api/streak/freeze")
       .then((r) => r.json())
@@ -123,12 +129,12 @@ export default function StreakTracker() {
         setFreeze(null);
       })
       .finally(() => setFreezeLoading(false));
-  };
+  }, []);
 
   useEffect(() => {
     fetchStreak();
     fetchFreeze();
-  }, [fetchStreak]);
+  }, [fetchStreak, fetchFreeze]);
 
   useEffect(() => {
     const handleSync = () => {
@@ -139,18 +145,19 @@ export default function StreakTracker() {
   }, [fetchStreak]);
 
   useEffect(() => {
-    const stored = localStorage.getItem(
+    if (typeof window === "undefined" || !window.localStorage) return;
+    const stored = window.localStorage.getItem(
       "devtrack:dismissed-milestones"
     );
 
-    const storedLastCelebrated = localStorage.getItem(
+    const storedLastCelebrated = window.localStorage.getItem(
       "devtrack:last-celebrated-milestone"
     );
 
     if (stored) {
       try {
         setDismissedMilestones(JSON.parse(stored));
-      } catch {
+      } catch (e) {
         // ignore invalid localStorage data
       }
     }
@@ -161,6 +168,7 @@ export default function StreakTracker() {
       );
     }
   }, []);
+
   useEffect(() => {
     if (!lastUpdated) return;
     const interval = setInterval(() => {
@@ -236,9 +244,186 @@ export default function StreakTracker() {
     }
   }
 
+  const currentMilestone =
+    [...STREAK_MILESTONES]
+      .reverse()
+      .find(
+        (m) =>
+          data?.current &&
+          data.current >= m &&
+          m > lastCelebratedMilestone
+      );
+  const shouldShowBanner =
+    currentMilestone &&
+    !dismissedMilestones.includes(currentMilestone);
+
+  const handleDismissBanner = () => {
+    if (!currentMilestone) return;
+
+    const updated = [
+      ...dismissedMilestones,
+      currentMilestone,
+    ];
+
+    setDismissedMilestones(updated);
+
+    setLastCelebratedMilestone(currentMilestone);
+
+    if (typeof window !== "undefined" && window.localStorage) {
+      window.localStorage.setItem(
+        "devtrack:last-celebrated-milestone",
+        String(currentMilestone)
+      );
+
+      window.localStorage.setItem(
+        "devtrack:dismissed-milestones",
+        JSON.stringify(updated)
+      );
+    }
+  };
+
+  const handleCopy = async () => {
+    if (!data) return;
+
+    const textToCopy = [
+      "🔥 DevTrack Stats",
+      `Current streak: ${data.current} days`,
+      `Longest streak: ${data.longest} days`,
+      `Active days: ${data.totalActiveDays}`,
+    ].join("\n");
+
+    if (typeof navigator === "undefined" || !navigator.clipboard) {
+      toast.error("Clipboard is not supported in this browser.");
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(textToCopy);
+
+      setCopied(true);
+
+      toast.success("Streak stats copied to clipboard!");
+
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error("Failed to copy streak stats:", err);
+      toast.error("Failed to copy streak stats.");
+    }
+  };
+
+  // -------------------------------------------------------------------------
+  // Realtime: re-fetch when streak_freezes rows change in Supabase.
+  // Falls back to 60-second polling if the WebSocket cannot connect.
+  // NOTE: enable Realtime for the `streak_freezes` table in the Supabase
+  // dashboard and ensure the anon role has a SELECT policy (or use a
+  // user-scoped filter once a Supabase JWT is available in the session).
+  // -------------------------------------------------------------------------
+  const handleRealtimeFreeze = useCallback(() => {
+    fetchFreeze();
+    fetchStreak();
+  }, [fetchFreeze, fetchStreak]);
+
+  const { isLive: isStreakLive } = useRealtimeSync(
+    "streak_freezes",
+    ["INSERT", "DELETE"],
+    handleRealtimeFreeze,
+  );
+
+  return {
+    selectedAccount,
+    isStreakLive,
+    data,
+    setData,
+    contributionData,
+    setContributionData,
+    freezeDates,
+    setFreezeDates,
+    loading,
+    setLoading,
+    dismissedMilestones,
+    setDismissedMilestones,
+    lastCelebratedMilestone,
+    setLastCelebratedMilestone,
+    lastUpdated,
+    minutesAgo,
+    copied,
+    setCopied,
+    error,
+    setError,
+    calendarMonth,
+    setCalendarMonth,
+    freeze,
+    setFreeze,
+    freezeLoading,
+    setFreezeLoading,
+    cancelling,
+    setCancelling,
+    confirmCancel,
+    setConfirmCancel,
+    isDownloading,
+    setIsDownloading,
+    containerRef,
+    animatedCurrent,
+    animatedLongest,
+    animatedActiveDays,
+    handleDownload,
+    fetchStreak,
+    fetchFreeze,
+    handleApplyFreeze,
+    handleCancelFreeze,
+    currentMilestone,
+    shouldShowBanner,
+    handleDismissBanner,
+    handleCopy,
+  };
+}
+
+export default function StreakTracker() {
+  const {
+    selectedAccount,
+    isStreakLive,
+    data,
+    setData,
+    contributionData,
+    setContributionData,
+    freezeDates,
+    setFreezeDates,
+    loading,
+    dismissedMilestones,
+    lastCelebratedMilestone,
+    lastUpdated,
+    minutesAgo,
+    copied,
+    setCopied,
+    error,
+    setError,
+    calendarMonth,
+    setCalendarMonth,
+    freeze,
+    setFreeze,
+    freezeLoading,
+    setFreezeLoading,
+    cancelling,
+    confirmCancel,
+    setConfirmCancel,
+    isDownloading,
+    containerRef,
+    animatedCurrent,
+    animatedLongest,
+    animatedActiveDays,
+    handleDownload,
+    fetchStreak,
+    handleApplyFreeze,
+    handleCancelFreeze,
+    currentMilestone,
+    shouldShowBanner,
+    handleDismissBanner,
+    handleCopy,
+  } = useStreakTracker();
+
   if (loading) {
     return (
-      <div className="bg-[var(--card)] rounded-xl p-6">
+      <div className="bg-[var(--card)] rounded-xl p-6 min-h-[700px]">
         <div role="status" aria-live="polite" aria-busy="true">
           <span className="sr-only">Loading streak tracker</span>
           <div
@@ -332,12 +517,12 @@ export default function StreakTracker() {
         tooltip: "Your longest streak ever",
       },
       {
-        label: "Active Days (90d)",
+        label: `Active Days (${DATA_WINDOW_DAYS}d)`,
         value: animatedActiveDays,
         unit: "days",
         highlight: false,
         icon: Calendar,
-        tooltip: "Days you made commits in the last 90 days",
+        tooltip: `Days you made commits in the ${dataWindowLabel.toLowerCase()}`,
       },
       {
         label: "Last Commit",
@@ -355,69 +540,9 @@ export default function StreakTracker() {
     ]
     : [];
 
-  const handleCopy = async () => {
-    if (!data) return;
 
-    const textToCopy = [
-      "🔥 DevTrack Stats",
-      `Current streak: ${data.current} days`,
-      `Longest streak: ${data.longest} days`,
-      `Active days: ${data.totalActiveDays}`,
-    ].join("\n");
 
-    if (!navigator.clipboard) {
-      toast.error("Clipboard is not supported in this browser.");
-      return;
-    }
 
-    try {
-      await navigator.clipboard.writeText(textToCopy);
-
-      setCopied(true);
-
-      toast.success("Streak stats copied to clipboard!");
-
-      setTimeout(() => setCopied(false), 2000);
-    } catch (err) {
-      console.error("Failed to copy streak stats:", err);
-      toast.error("Failed to copy streak stats.");
-    }
-  };
-
-  const currentMilestone =
-    [...STREAK_MILESTONES]
-      .reverse()
-      .find(
-        (m) =>
-          data?.current &&
-          data.current >= m &&
-          m > lastCelebratedMilestone
-      );
-  const shouldShowBanner =
-    currentMilestone &&
-    !dismissedMilestones.includes(currentMilestone);
-  const handleDismissBanner = () => {
-    if (!currentMilestone) return;
-
-    const updated = [
-      ...dismissedMilestones,
-      currentMilestone,
-    ];
-
-    setDismissedMilestones(updated);
-
-    setLastCelebratedMilestone(currentMilestone);
-
-    localStorage.setItem(
-      "devtrack:last-celebrated-milestone",
-      String(currentMilestone)
-    );
-
-    localStorage.setItem(
-      "devtrack:dismissed-milestones",
-      JSON.stringify(updated)
-    );
-  };
 
   return (
     <>
@@ -433,7 +558,7 @@ export default function StreakTracker() {
             <button
               type="button"
               onClick={handleCopy}
-              className="cursor-pointer flex h-8 items-center justify-center rounded-md px-2 text-sm text-[var(--muted-foreground)] hover:bg-[var(--control)] hover:text-[var(--card-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] transition-colors"
+              className="cursor-pointer flex h-8 items-center justify-center rounded-md px-2 text-sm text-[var(--muted-foreground)] hover:bg-[var(--control)] hover:text-[var(--card-foreground)] transition-colors"
               aria-label="Copy streak stats to clipboard"
             >
               {copied ? (
@@ -446,7 +571,7 @@ export default function StreakTracker() {
               type="button"
               onClick={handleDownload}
               disabled={isDownloading}
-              className="cursor-pointer flex h-8 items-center justify-center rounded-md px-3 py-1.5 text-xs font-medium bg-[var(--accent)] text-[var(--accent-foreground)] hover:opacity-90 disabled:opacity-70 focus:outline-none focus:ring-2 focus:ring-[var(--accent)] transition-colors gap-1.5 shadow-sm"
+              className="cursor-pointer flex h-8 items-center justify-center rounded-md px-3 py-1.5 text-xs font-medium bg-[var(--accent)] text-[var(--accent-foreground)] hover:opacity-90 disabled:opacity-70 transition-colors gap-1.5 shadow-sm"
               aria-label="Download streak stats as image"
             >
               {isDownloading ? (
@@ -458,9 +583,23 @@ export default function StreakTracker() {
             </button>
           </div>
         )}
-        <div ref={containerRef} className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-6 shadow-sm">
+        <div ref={containerRef} data-testid="streak-widget" className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-6 shadow-sm">
           <div className="mb-4 flex items-center justify-between">
-            <SectionHeader title="Commit Streaks" />
+            <div className="flex items-center gap-2">
+              <SectionHeader title="Commit Streaks" />
+              {isStreakLive && (
+                <span
+                  title="Live — updates automatically"
+                  className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-500"
+                >
+                  <span className="relative flex h-1.5 w-1.5">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75" />
+                    <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                  </span>
+                  Live
+                </span>
+              )}
+            </div>
             {data && <div className="h-8 w-24" />}
           </div>
           <div className="grid grid-cols-2 gap-3">
@@ -468,8 +607,8 @@ export default function StreakTracker() {
               <div
                 key={stat.label}
                 className={`rounded-lg p-4 text-center ${stat.highlight
-                    ? "border border-[var(--accent)]/40 bg-[var(--accent-soft)]"
-                    : "bg-[var(--control)]"
+                  ? "border border-[var(--accent)]/40 bg-[var(--accent-soft)]"
+                  : "bg-[var(--control)]"
                   }`}
                 aria-label={stat.tooltip}
               >
@@ -493,7 +632,7 @@ export default function StreakTracker() {
                   <button
                     type="button"
                     aria-label={stat.tooltip}
-                    className="text-[var(--muted-foreground)] hover:text-[var(--accent)] focus:outline-none"
+                    className="text-[var(--muted-foreground)] hover:text-[var(--accent)]"
                   >
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
@@ -583,7 +722,7 @@ export default function StreakTracker() {
             </p>
           )}
 
-          {!freezeLoading && freeze?.hasFreeze && (
+          {freeze && freeze.hasFreeze && (
             <div className="mt-4 flex items-center justify-between rounded-lg border border-[var(--accent)]/30 bg-[var(--accent-soft)] px-4 py-3">
               <div className="flex items-center gap-2">
                 <CheckCircle size={18} className="text-[var(--accent)]" aria-hidden="true" />
@@ -595,16 +734,16 @@ export default function StreakTracker() {
                   <button
                     type="button"
                     onClick={handleCancelFreeze}
-                    disabled={cancelling}
-                    className="rounded-md bg-[var(--destructive)]/10 px-2.5 py-1 text-xs font-medium text-[var(--destructive)] transition hover:bg-[var(--destructive)]/20 disabled:opacity-60"
+                    disabled={cancelling || freezeLoading}
+                    className="rounded-md bg-[var(--destructive)]/10 px-2.5 py-1 text-xs font-medium text-[var(--destructive)] transition hover:bg-[var(--destructive)]/20 disabled:opacity-60 disabled:cursor-not-allowed"
                   >
                     {cancelling ? "Removing..." : "Yes, remove"}
                   </button>
                   <button
                     type="button"
                     onClick={() => setConfirmCancel(false)}
-                    disabled={cancelling}
-                    className="rounded-md border border-[var(--border)] px-2.5 py-1 text-xs font-medium text-[var(--muted-foreground)] transition hover:bg-[var(--control)]"
+                    disabled={cancelling || freezeLoading}
+                    className="rounded-md border border-[var(--border)] px-2.5 py-1 text-xs font-medium text-[var(--muted-foreground)] transition hover:bg-[var(--control)] disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Keep
                   </button>
@@ -613,7 +752,8 @@ export default function StreakTracker() {
                 <button
                   type="button"
                   onClick={handleCancelFreeze}
-                  className="rounded-md border border-[var(--border)] px-3 py-1 text-xs font-medium text-[var(--muted-foreground)] transition hover:bg-[var(--control)]"
+                  disabled={cancelling || freezeLoading}
+                  className="rounded-md border border-[var(--border)] px-3 py-1 text-xs font-medium text-[var(--muted-foreground)] transition hover:bg-[var(--control)] disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Cancel freeze
                 </button>
@@ -621,7 +761,7 @@ export default function StreakTracker() {
             </div>
           )}
 
-          {!freezeLoading && !freeze?.hasFreeze && (
+          {freeze && !freeze.hasFreeze && (
             <div className="mt-4 flex items-center justify-between rounded-lg border border-[var(--border)] bg-[var(--control)] px-4 py-3">
               <div className="flex items-center gap-2">
                 <span className="text-sm font-medium text-[var(--foreground)]">Streak Freeze</span>
@@ -642,14 +782,15 @@ export default function StreakTracker() {
               </div>
               <button
                 type="button"
+                data-testid="streak-freeze-button"
                 onClick={handleApplyFreeze}
                 disabled={freezeLoading || freeze?.hasFreeze}
                 className={`rounded-md px-3 py-1 text-xs font-medium transition ${freezeLoading || freeze?.hasFreeze
-                    ? "cursor-not-allowed opacity-50 bg-[var(--accent)]"
-                    : "bg-[var(--accent)] hover:opacity-90"
+                  ? "cursor-not-allowed opacity-50 bg-[var(--accent)]"
+                  : "bg-[var(--accent)] hover:opacity-90"
                   } text-[var(--accent-foreground)]`}
               >
-                {freeze?.hasFreeze ? "Freeze Active" : "Freeze Streak"}
+                {freezeLoading ? "Freezing..." : "Freeze Streak"}
               </button>
             </div>
           )}
@@ -870,7 +1011,7 @@ interface WeekdayInsight {
   avgCommits: number;
 }
 
-function calculateActiveDayInsights(data: Record<string, number> | undefined | null): {
+export function calculateActiveDayInsights(data: Record<string, number> | undefined | null): {
   insights: WeekdayInsight[];
   peakDay: WeekdayInsight | null;
   isValid: boolean;
@@ -933,7 +1074,7 @@ interface MonthlyTrendResult {
   colorClass: string;
 }
 
-function calculateMonthlyTrend(contrib: ContributionData | undefined | null): MonthlyTrendResult {
+export function calculateMonthlyTrend(contrib: ContributionData | undefined | null): MonthlyTrendResult {
   if (!contrib || !contrib.data) {
     return { isValid: false, thisMonth: 0, lastMonth: 0, text: "", colorClass: "" };
   }
