@@ -29,6 +29,7 @@
 - **[Demo](#demo)**
 - **[Features](#features)**
 - **[Getting Started](#getting-started)**
+- **[Architecture](./docs/architecture.md)**
 - **[Roadmap](#roadmap)**
 - **[Contributing](#contributing)**
 
@@ -66,6 +67,7 @@
 - [Features](#features)
 - [Tech Stack](#tech-stack)
 - [Project Structure](#project-structure)
+- [Architecture](#architecture)
 - [Getting Started](#getting-started)
 - [Docker Development Setup](#docker-development-setup)
 - [Roadmap](#roadmap)
@@ -158,6 +160,12 @@ devtrack/
     ├── workflows/ci.yml       # Type-check + lint on every PR
     └── ISSUE_TEMPLATE/        # Bug, feature, good-first-issue templates
 ```
+
+---
+
+## Architecture
+
+New contributors can start with the [architecture overview](./docs/architecture.md) for Mermaid diagrams covering the Next.js frontend, API routes, Supabase schema, external services, and GitHub activity sync flow.
 
 ---
 
