@@ -52,6 +52,7 @@ export default function PRMetrics() {
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"authored" | "reviews">("authored");
   const [prFilter, setPrFilter] = useState<"all" | "merged" | "open">("all");
+  const [range, setRange] = useState<"7d" | "30d" | "90d">("30d");
   const [staleThresholdDays, setStaleThresholdDays] = useState(14);
 
   const fetchMetrics = useCallback(() => {
@@ -60,8 +61,8 @@ export default function PRMetrics() {
 
     const url =
       selectedAccount !== null
-        ? `/api/metrics/prs?accountId=${encodeURIComponent(selectedAccount)}`
-        : "/api/metrics/prs";
+        ? `/api/metrics/prs?accountId=${encodeURIComponent(selectedAccount)}&range=${range}`
+        : `/api/metrics/prs?range=${range}`;
 
     fetch(url)
       .then((r) => {
@@ -75,7 +76,7 @@ export default function PRMetrics() {
       })
       .catch(() => setError("We couldn't load your PR analytics right now. Please try again in a moment."))
       .finally(() => setLoading(false));
-  }, [selectedAccount]);
+  }, [selectedAccount, range]);
 
   useEffect(() => {
     fetchMetrics();
@@ -172,6 +173,21 @@ export default function PRMetrics() {
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between mb-4">
         <SectionHeader title="PR Analytics" />
         <div className="flex flex-wrap items-center gap-2">
+          <div className="flex gap-2">
+            {(["7d", "30d", "90d"] as const).map((option) => (
+              <button
+                key={option}
+                onClick={() => setRange(option)}
+                className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                  range === option
+                    ? "bg-[var(--accent)] text-white"
+                    : "bg-[var(--control)] text-[var(--muted-foreground)] hover:bg-[var(--card-muted)]"
+                }`}
+              >
+                {option}
+              </button>
+            ))}
+          </div>
           <div className="flex gap-2">
             <button
               onClick={() => setActiveTab("authored")}
@@ -346,7 +362,7 @@ export default function PRMetrics() {
           </div>
         </div>
       )}
-      
+
       {lastUpdated && (
         <p className="text-xs text-[var(--muted-foreground)] mt-2 text-right">
           {minutesAgo === 0 ? "Updated just now" : `Updated ${minutesAgo} min ago`}
