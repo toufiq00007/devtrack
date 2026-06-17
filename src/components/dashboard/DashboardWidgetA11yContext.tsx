@@ -82,9 +82,10 @@ export function useDashboardWidgetA11y(widgetId: DashboardWidgetId) {
   const context = useContext(DashboardWidgetA11yContext);
 
   if (!context) {
-    throw new Error(
-      "useDashboardWidgetA11y must be used within DashboardWidgetA11yProvider",
-    );
+    return {
+      setSummary: () => {},
+      setIsUpdating: () => {},
+    };
   }
 
   const { setSummary: setSummaryForWidget, setIsUpdating: setIsUpdatingForWidget } =
